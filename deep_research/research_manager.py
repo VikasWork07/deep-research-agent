@@ -7,29 +7,34 @@ from writer_agent import writer_agent, ReportData
 from email_agent import email_agent
 from clarifier_agent import clarifier_agent, ClarifierOutput
 
+
 class ResearchManager:
     async def run(self, query: str):
         """ Run the deep research process, yielding the status updates and the final report"""
         trace_id= gen_trace_id()
         with trace("Research Manager", trace_id=trace_id):
             print(f"View trace: https://platform.openai.com/traces/trace?trace_id={trace_id}")
-            yield f"View trace: https://platform.openai.com/traces/trace?trace_id={trace_id}"
+            yield {"type":"trace", "content": f"View trace: https://platform.openai.com/traces/trace?trace_id={trace_id}\n"}
             print("Analysing the research query for clarity...")
             clarifier_output = await self.clarifier_check(query)
             if clarifier_output.needs_clarification and clarifier_output.clarifying_questions:
                 print("Query needs clarification. Asking user for clarification...")
-                yield "Query needs clarification...Please answer following questions to clarify your query:\n"
-                for q in clarifier_output.clarifying_questions:
-                    yield f"- {q}\n"
+                #yield "Query needs clarification...Please answer following questions to clarify your query:\n"
+                #for q in clarifier_output.clarifying_questions:
+                #    yield f"- {q}\n"
+                yield {
+                    "type": "clarification",
+                    "content": clarifier_output.clarifying_questions,
+                }
                 return
             print("Starting research...")
             research_plan_response = await self.plan_searches(query)
-            yield "Searched planned, starting to search..."
+            yield {"type":"status", "content": "Searched planned, starting to search...\n"}
             search_web_results = await self.search_web(research_plan_response)
-            yield "Searches complete, writing report..."
+            yield {"type":"status", "content": "Searches complete, writing report...\n"}
             report = await self.write_report(query, search_web_results)
-            yield "Report writing complete"
-            yield report.markdown_report
+            yield {"type":"status", "content": "Report writing complete...\n"}
+            yield {"type":"report", "content": report.markdown_report}
 
     async def clarifier_check(self, query:str) -> ClarifierOutput:
         """Check if the query needs clarification and if so, returns questions to clarify the query"""
